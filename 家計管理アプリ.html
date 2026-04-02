@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>家計管理アプリ</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.development.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.development.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    html,body{height:100%;background:#f2f2f7}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue','Hiragino Kaku Gothic ProN','Meiryo',sans-serif;color:#1c1c1e;-webkit-font-smoothing:antialiased}
+    #root{max-width:600px;margin:0 auto;min-height:100svh;display:flex;flex-direction:column;position:relative}
+    .topbar{background:linear-gradient(135deg,#1b5e20,#2e7d32);color:#fff;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;box-shadow:0 2px 10px rgba(0,0,0,.2)}
+    .topbar-left{display:flex;flex-direction:column}
+    .topbar-title{font-size:1.05rem;font-weight:700;letter-spacing:.02em}
+    .topbar-sub{font-size:.72rem;opacity:.8;margin-top:2px}
+    .topbar-btn{background:rgba(255,255,255,.2);border:none;color:#fff;padding:7px 13px;border-radius:8px;font-size:.8rem;cursor:pointer;font-weight:700;white-space:nowrap;transition:background .2s}
+    .topbar-btn:active{background:rgba(255,255,255,.35)}
+    .month-bar{background:#fff;padding:8px 10px;display:flex;gap:5px;overflow-x:auto;scrollbar-width:none;border-bottom:1px solid #e5e5ea;flex-shrink:0}
+    .month-bar::-webkit-scrollbar{display:none}
+    .mchip{flex-shrink:0;padding:6px 14px;border-radius:20px;border:none;font-size:.82rem;font-weight:700;cursor:pointer;background:#f2f2f7;color:#666;transition:all .2s}
+    .mchip.active{background:#2e7d32;color:#fff}
+    .content{flex:1;overflow-y:auto;padding:12px 12px 90px}
+    .bottom-nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:600px;background:#fff;border-top:1px solid #e5e5ea;display:grid;grid-template-columns:repeat(4,1fr);z-index:100;box-shadow:0 -2px 12px rgba(0,0,0,.1)}
+    .nav-btn{display:flex;flex-direction:column;align-items:center;padding:8px 4px 10px;border:none;background:transparent;cursor:pointer;color:#aaa;transition:color .2s;gap:2px;-webkit-tap-highlight-color:transparent}
+    .nav-icon{font-size:1.3rem}
+    .nav-lbl{font-size:.62rem;font-weight:700;letter-spacing:.03em}
+    .nav-btn.active{color:#2e7d32}
+    .fab{position:fixed;bottom:76px;right:calc(50% - 285px);width:54px;height:54px;border-radius:27px;background:#2e7d32;color:#fff;border:none;font-size:1.7rem;cursor:pointer;box-shadow:0 4px 18px rgba(46,125,50,.45);display:flex;align-items:center;justify-content:center;z-index:99;transition:transform .15s,box-shadow .15s;-webkit-tap-highlight-color:transparent}
+    .fab:active{transform:scale(.93);box-shadow:0 2px 10px rgba(46,125,50,.4)}
+    @media(max-width:600px){.fab{right:16px}}
+    .card{background:#fff;border-radius:14px;padding:14px 16px;margin-bottom:10px;box-shadow:0 1px 5px rgba(0,0,0,.08)}
+    .card-title{font-size:.72rem;font-weight:700;color:#8e8e93;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px}
+    .sum-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px}
+    .sum-tile{background:#fff;border-radius:14px;padding:12px 8px;text-align:center;box-shadow:0 1px 5px rgba(0,0,0,.08)}
+    .sum-lbl{font-size:.68rem;color:#8e8e93;font-weight:700;margin-bottom:5px}
+    .sum-val{font-size:1.1rem;font-weight:800;line-height:1.2}
+    .c-green{color:#2e7d32}.c-red{color:#d32f2f}.c-blue{color:#1565c0}.c-orange{color:#e65100}.c-gray{color:#8e8e93}.c-usd{color:#1565c0}
+    .date-grp{margin-bottom:14px}
+    .date-hdr{font-size:.75rem;font-weight:700;color:#8e8e93;padding:0 4px;margin-bottom:6px;display:flex;align-items:center;gap:8px}
+    .date-hdr::after{content:'';flex:1;height:1px;background:#e5e5ea}
+    .date-sum{font-size:.72rem;font-weight:700}
+    .txn-row{background:#fff;border-radius:12px;padding:11px 13px;display:flex;align-items:center;gap:10px;margin-bottom:6px;box-shadow:0 1px 4px rgba(0,0,0,.07);cursor:pointer;-webkit-tap-highlight-color:transparent;transition:background .15s}
+    .txn-row:active{background:#f9f9f9}
+    .txn-icon{width:38px;height:38px;border-radius:10px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:1.05rem}
+    .txn-info{flex:1;min-width:0}
+    .txn-sub{font-size:.9rem;font-weight:600}
+    .txn-meta{font-size:.73rem;color:#8e8e93;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .txn-right{display:flex;flex-direction:column;align-items:flex-end;gap:3px;flex-shrink:0}
+    .txn-amt{font-size:.92rem;font-weight:700}
+    .fixed-pill{display:inline-block;background:#fff3e0;color:#e65100;font-size:.62rem;font-weight:700;padding:2px 6px;border-radius:10px}
+    .usd-pill{display:inline-block;background:#e3f2fd;color:#1565c0;font-size:.62rem;font-weight:700;padding:2px 6px;border-radius:10px}
+    .fixed-section-hdr{font-size:.72rem;font-weight:700;color:#e65100;display:flex;align-items:center;gap:6px;margin-bottom:8px}
+    .fixed-section-hdr::after{content:'';flex:1;height:1px;background:#ffe082}
+    .fc-group{margin-bottom:14px}
+    .fc-group-hdr{font-size:.75rem;font-weight:700;color:#8e8e93;padding:6px 4px;margin-bottom:6px;border-bottom:1px solid #f0f0f0;text-transform:uppercase;letter-spacing:.04em}
+    .fc-row{background:#fff;border-radius:12px;padding:10px 14px;display:flex;align-items:center;gap:8px;margin-bottom:6px;box-shadow:0 1px 4px rgba(0,0,0,.07)}
+    .fc-name{flex:1;font-size:.88rem;color:#1c1c1e;min-width:0}
+    .fc-input{width:100px;padding:7px 10px;border:1.5px solid #e5e5ea;border-radius:8px;font-size:.88rem;text-align:right;font-family:inherit;background:#fafafa;transition:border-color .2s}
+    .fc-input:focus{outline:none;border-color:#2e7d32;background:#fff}
+    .fc-input.usd{border-color:#90caf9;background:#f0f8ff}
+    .fc-input.usd:focus{border-color:#1565c0}
+    .fc-input::-webkit-inner-spin-button{-webkit-appearance:none}
+    .fc-input:disabled{background:#f5f5f5;color:#aaa}
+    .fc-usd-note{font-size:.68rem;color:#1565c0;text-align:right;margin-top:2px}
+    .curr-btn{padding:4px 7px;border-radius:7px;border:1.5px solid #e5e5ea;font-size:.75rem;font-weight:700;cursor:pointer;background:#f9f9f9;color:#888;flex-shrink:0;transition:all .2s;-webkit-tap-highlight-color:transparent}
+    .curr-btn.usd{background:#e3f2fd;border-color:#90caf9;color:#1565c0}
+    .curr-btn.jpy{background:#f3e5f5;border-color:#ce93d8;color:#7b1fa2}
+    .tog{width:46px;height:26px;border-radius:13px;border:none;cursor:pointer;position:relative;flex-shrink:0;transition:background .25s}
+    .tog::after{content:'';position:absolute;width:22px;height:22px;border-radius:50%;background:#fff;top:2px;transition:left .25s;box-shadow:0 1px 3px rgba(0,0,0,.3)}
+    .tog.on{background:#2e7d32}.tog.off{background:#c7c7cc}
+    .tog.on::after{left:22px}.tog.off::after{left:2px}
+    .backdrop{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:200;display:flex;align-items:flex-end;justify-content:center}
+    .sheet{background:#fff;border-radius:22px 22px 0 0;width:100%;max-width:600px;padding:0 0 40px;max-height:92svh;overflow-y:auto;animation:slideUp .25s ease}
+    @keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+    .sheet-handle{width:38px;height:4px;background:#d1d1d6;border-radius:2px;margin:14px auto 10px}
+    .sheet-title{font-size:1rem;font-weight:700;text-align:center;padding:0 16px 12px;border-bottom:1px solid #f0f0f0}
+    .sheet-body{padding:16px}
+    .type-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px}
+    .type-btn{padding:12px;border:2px solid #e5e5ea;border-radius:12px;font-size:.92rem;font-weight:700;cursor:pointer;background:#fff;color:#888;text-align:center;transition:all .2s;-webkit-tap-highlight-color:transparent}
+    .type-btn.exp.sel{border-color:#d32f2f;background:#ffebee;color:#d32f2f}
+    .type-btn.inc.sel{border-color:#2e7d32;background:#e8f5e9;color:#2e7d32}
+    .fgrp{margin-bottom:12px}
+    .flbl{font-size:.72rem;font-weight:700;color:#8e8e93;margin-bottom:5px;display:block;letter-spacing:.04em}
+    .finput,.fselect{width:100%;padding:12px 14px;border:1.5px solid #e5e5ea;border-radius:12px;font-size:.95rem;font-family:inherit;background:#fff;color:#1c1c1e;appearance:none;-webkit-appearance:none;transition:border-color .2s}
+    .finput:focus,.fselect:focus{outline:none;border-color:#2e7d32}
+    .finput[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
+    .famount{font-size:1.8rem;font-weight:800;text-align:center;padding:14px;border:2px solid #e5e5ea;border-radius:12px;width:100%}
+    .famount:focus{outline:none;border-color:#2e7d32}
+    .famount::-webkit-inner-spin-button{-webkit-appearance:none}
+    .select-wrap{position:relative}
+    .select-wrap::after{content:'▾';position:absolute;right:14px;top:50%;transform:translateY(-50%);color:#8e8e93;pointer-events:none;font-size:.9rem}
+    .btn-save{width:100%;padding:15px;background:#2e7d32;color:#fff;border:none;border-radius:14px;font-size:1rem;font-weight:700;cursor:pointer;margin-top:8px;transition:background .2s}
+    .btn-save:active{background:#1b5e20}
+    .btn-cancel{width:100%;padding:12px;background:transparent;color:#8e8e93;border:none;border-radius:14px;font-size:.9rem;cursor:pointer;margin-top:4px}
+    .btn-danger{background:#ffebee;color:#d32f2f;border:none;border-radius:10px;padding:10px 16px;font-size:.85rem;font-weight:700;cursor:pointer;width:100%;margin-top:4px}
+    .chart-wrap{position:relative;height:270px}
+    .chart-wrap-sm{position:relative;height:240px}
+    .mtable{width:100%;border-collapse:collapse;font-size:.82rem}
+    .mtable th{font-weight:700;color:#8e8e93;font-size:.72rem;letter-spacing:.04em;padding:5px 8px;text-align:left;border-bottom:1px solid #f0f0f0}
+    .mtable td{padding:7px 8px;border-bottom:1px solid #f5f5f5}
+    .mtable td:not(:first-child){text-align:right;font-variant-numeric:tabular-nums}
+    .mtable tr.cur td{background:#f0f7ff;font-weight:700}
+    .mtable tfoot td{font-weight:800;border-top:2px solid #e5e5ea;padding-top:8px}
+    .kisohi-banner{background:#fff8e1;border:1px solid #ffe082;border-radius:14px;padding:12px 14px;margin-bottom:10px}
+    .kisohi-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+    .kisohi-ttl{font-size:.82rem;font-weight:700;color:#e65100}
+    .kisohi-amt{font-size:1rem;font-weight:800;color:#e65100}
+    .kisohi-chips{display:flex;flex-wrap:wrap;gap:4px}
+    .kisohi-chip{background:#fff;border:1px solid #ffe082;border-radius:8px;font-size:.7rem;padding:3px 8px;color:#795548;font-weight:500}
+    .kisohi-chip b{color:#e65100}
+    .empty{text-align:center;padding:48px 20px;color:#8e8e93}
+    .empty-icon{font-size:3rem;margin-bottom:10px}
+    .empty-txt{font-size:.88rem}
+    .info-note{background:#e8f5e9;border-radius:10px;padding:10px 14px;font-size:.78rem;color:#2e7d32;margin-bottom:12px}
+    .rate-card{background:#e3f2fd;border:1px solid #90caf9;border-radius:14px;padding:12px 14px;margin-bottom:14px}
+    .rate-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+    .rate-lbl{font-size:.82rem;font-weight:700;color:#1565c0;white-space:nowrap}
+    .rate-input{width:90px;padding:7px 10px;border:1.5px solid #90caf9;border-radius:8px;font-size:.95rem;font-weight:700;text-align:right;font-family:inherit;background:#fff;color:#1565c0}
+    .rate-input:focus{outline:none;border-color:#1565c0}
+    .rate-input::-webkit-inner-spin-button{-webkit-appearance:none}
+    .rate-note{font-size:.72rem;color:#1565c0;opacity:.8;margin-top:4px}
+  </style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useRef, useCallback, useMemo } = React;
+
+const MONTHS = [
+  {key:"2026-04",label:"4月",y:2026,m:4},{key:"2026-05",label:"5月",y:2026,m:5},
+  {key:"2026-06",label:"6月",y:2026,m:6},{key:"2026-07",label:"7月",y:2026,m:7},
+  {key:"2026-08",label:"8月",y:2026,m:8},{key:"2026-09",label:"9月",y:2026,m:9},
+  {key:"2026-10",label:"10月",y:2026,m:10},{key:"2026-11",label:"11月",y:2026,m:11},
+  {key:"2026-12",label:"12月",y:2026,m:12},{key:"2027-01",label:"1月",y:2027,m:1},
+  {key:"2027-02",label:"2月",y:2027,m:2},{key:"2027-03",label:"3月",y:2027,m:3},
+];
+const INCOME_CATS = {
+  "給与収入":["給料","ボーナス","還付金等"],
+  "事業収入":["Note","物品販売"],
+  "その他":["その他収入"],
+};
+const EXPENSE_CATS = {
+  "固定生活費":["通信費","奨学金","税金・公的支払い"],
+  "変動生活費":["食費","日用品","交通費","雑費"],
+  "健康・美容":["化粧品","衣服","医療","美容院","ヨガ"],
+  "学び・自己投資":["書籍","語学","文房具等","リベシティ","積み立てNISA","AI"],
+  "趣味・娯楽":["カフェ","気分転換","動画配信サービス","コンテンツ"],
+  "交際費・贈りもの":["人付き合い","プレゼント","寄付"],
+  "特別費":["大きな買い物","引っ越し","遠くへお出かけ"],
+  "経費":["会社","事業"],
+};
+const KISOHI = ["通信費","奨学金","税金・公的支払い","食費","日用品","交通費","雑費","化粧品","衣服","医療","美容院"];
+const CAT_ICON = {"固定生活費":"🔒","変動生活費":"🛒","健康・美容":"💄","学び・自己投資":"📚","趣味・娯楽":"🎮","交際費・贈りもの":"🎁","特別費":"⭐","経費":"🧾","給与収入":"💼","事業収入":"💻","その他":"📌"};
+const CAT_BG   = {"固定生活費":"#f3e5f5","変動生活費":"#e8f5e9","健康・美容":"#fce4ec","学び・自己投資":"#e3f2fd","趣味・娯楽":"#fff3e0","交際費・贈りもの":"#fce4ec","特別費":"#fffde7","経費":"#e8eaf6","給与収入":"#e8f5e9","事業収入":"#e8f5e9","その他":"#f5f5f5"};
+const EXP_COLORS = ["rgba(239,83,80,.8)","rgba(171,71,188,.8)","rgba(66,165,245,.8)","rgba(102,187,106,.8)","rgba(255,167,38,.8)","rgba(38,198,218,.8)","rgba(141,110,99,.8)","rgba(92,107,192,.8)"];
+const JP_DOW = ["日","月","火","水","木","金","土"];
+const ALL_INC_SUBS = Object.values(INCOME_CATS).flat();
+const ALL_EXP_SUBS = Object.values(EXPENSE_CATS).flat();
+
+const toN = v => parseFloat(v) || 0;
+const yen  = n => `¥${Math.abs(Math.round(n)).toLocaleString("ja-JP")}`;
+const usd  = n => `$${Math.abs(n % 1 === 0 ? n : n.toFixed(2)).toLocaleString("en-US")}`;
+const signYen = n => (n >= 0 ? "+" : "−") + `¥${Math.abs(Math.round(n)).toLocaleString("ja-JP")}`;
+const todayStr = () => new Date().toISOString().split("T")[0];
+const fmtDate = s => { const [y,m,d] = s.split("-").map(Number); const dow = JP_DOW[new Date(y,m-1,d).getDay()]; return `${m}月${d}日（${dow}）`; };
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2);
+
+const SK_TXN   = "kakeibo_txn_v2";
+const SK_FIXED = "kakeibo_fixed_v2";
+const SK_RATE  = "kakeibo_usd_rate";
+const loadTxn  = () => { try { return JSON.parse(localStorage.getItem(SK_TXN) || "[]"); } catch { return []; } };
+const saveTxn  = d => localStorage.setItem(SK_TXN, JSON.stringify(d));
+const loadRate = () => { try { return parseFloat(localStorage.getItem(SK_RATE)) || 150; } catch { return 150; } };
+const saveRate = r => localStorage.setItem(SK_RATE, r.toString());
+
+function defaultFixed() {
+  const r = {};
+  for (const [b,ss] of Object.entries(EXPENSE_CATS))
+    for (const s of ss) r[s] = { bigCat:b, amount:0, enabled:false, currency:"JPY", usdAmount:0 };
+  return r;
+}
+const loadFixed = () => {
+  const def = defaultFixed();
+  try {
+    const st = JSON.parse(localStorage.getItem(SK_FIXED) || "{}");
+    for (const [s,v] of Object.entries(st)) if (def[s]) def[s] = { ...def[s], ...v };
+    return def;
+  } catch { return def; }
+};
+const saveFixed = d => localStorage.setItem(SK_FIXED, JSON.stringify(d));
+
+// JPY換算額を返す（USDの場合はレートで換算）
+const getJPY = (fc, rate) => fc.currency === "USD" ? Math.round(fc.usdAmount * rate) : fc.amount;
+
+function monthStats(txns, fixedCosts, key, rate) {
+  const mt = txns.filter(t => t.date.startsWith(key));
+  const inc    = mt.filter(t => t.type === "inc").reduce((s,t) => s + t.amount, 0);
+  const expTxn = mt.filter(t => t.type === "exp").reduce((s,t) => s + t.amount, 0);
+  const expFix = Object.values(fixedCosts).filter(f => f.enabled).reduce((s,f) => s + getJPY(f, rate), 0);
+  const exp = expTxn + expFix;
+  return { inc, expTxn, expFix, exp, net: inc - exp };
+}
+function expByBigCat(txns, fixedCosts, key, rate) {
+  const r = {};
+  txns.filter(t => t.date.startsWith(key) && t.type === "exp").forEach(t => { r[t.bigCat] = (r[t.bigCat]||0) + t.amount; });
+  Object.entries(fixedCosts).filter(([,f]) => f.enabled).forEach(([,f]) => { r[f.bigCat] = (r[f.bigCat]||0) + getJPY(f, rate); });
+  return r;
+}
+function kisohiTotal(txns, fixedCosts, key, rate) {
+  const fromTxn = txns.filter(t => t.date.startsWith(key) && t.type === "exp" && KISOHI.includes(t.subCat)).reduce((s,t) => s + t.amount, 0);
+  const fromFix = Object.entries(fixedCosts).filter(([s,f]) => f.enabled && KISOHI.includes(s)).reduce((s,[k,f]) => s + getJPY(f, rate), 0);
+  return fromTxn + fromFix;
+}
+
+function doExport(txns, fixedCosts, rate) {
+  const wb = XLSX.utils.book_new();
+  const rows1 = [["日付","種別","カテゴリ","項目","金額(円)","通貨","元金額","メモ"]];
+  [...txns].sort((a,b) => a.date.localeCompare(b.date)).forEach(t => {
+    rows1.push([t.date, t.type==="inc"?"収入":"支出", t.bigCat, t.subCat, t.amount, "JPY", t.amount, t.memo||""]);
+  });
+  rows1.push([]);
+  rows1.push(["【固定費設定】","","","","","","",""]);
+  Object.entries(fixedCosts).filter(([,f]) => f.enabled).forEach(([s,f]) => {
+    const jpy = getJPY(f, rate);
+    const orig = f.currency === "USD" ? `$${f.usdAmount}` : `¥${f.amount}`;
+    rows1.push(["毎月", "支出", f.bigCat, s, jpy, f.currency, orig, "固定費"]);
+  });
+  const ws1 = XLSX.utils.aoa_to_sheet(rows1);
+  ws1["!cols"] = [{wch:12},{wch:6},{wch:16},{wch:18},{wch:12},{wch:6},{wch:10},{wch:20}];
+  XLSX.utils.book_append_sheet(wb, ws1, "日次記録");
+  const hdr = ["カテゴリ","項目",...MONTHS.map(m=>`${m.y}/${m.m}`),"年間合計","月平均"];
+  const rows2 = [hdr];
+  for (const [b,ss] of Object.entries({...INCOME_CATS})) {
+    rows2.push([b,...Array(15).fill("")]);
+    for (const s of ss) {
+      const vals = MONTHS.map(mk => txns.filter(t=>t.date.startsWith(mk.key)&&t.type==="inc"&&t.subCat===s).reduce((a,t)=>a+t.amount,0));
+      const tot = vals.reduce((a,b)=>a+b,0);
+      rows2.push(["",s,...vals,tot,Math.round(tot/12)]);
+    }
+  }
+  rows2.push(Array(16).fill(""));
+  for (const [b,ss] of Object.entries(EXPENSE_CATS)) {
+    rows2.push([b,...Array(15).fill("")]);
+    for (const s of ss) {
+      const vals = MONTHS.map(mk => {
+        const t = txns.filter(t=>t.date.startsWith(mk.key)&&t.type==="exp"&&t.subCat===s).reduce((a,t)=>a+t.amount,0);
+        const f = fixedCosts[s]?.enabled ? getJPY(fixedCosts[s], rate) : 0;
+        return t+f;
+      });
+      const tot = vals.reduce((a,b)=>a+b,0);
+      rows2.push(["",s,...vals,tot,Math.round(tot/12)]);
+    }
+  }
+  const ws2 = XLSX.utils.aoa_to_sheet(rows2);
+  ws2["!cols"] = [{wch:16},{wch:18},...Array(12).fill({wch:11}),{wch:11},{wch:9}];
+  XLSX.utils.book_append_sheet(wb, ws2, "月別集計");
+  XLSX.writeFile(wb, "家計管理表_2026-2027.xlsx");
+}
+
+function AddModal({ isOpen, onClose, onSave, onDelete, editTxn, defaultMonth }) {
+  const [type,setType]=useState("exp");
+  const [bigCat,setBigCat]=useState("");
+  const [subCat,setSubCat]=useState("");
+  const [amount,setAmount]=useState("");
+  const [date,setDate]=useState("");
+  const [memo,setMemo]=useState("");
+  const cats = type === "inc" ? INCOME_CATS : EXPENSE_CATS;
+  const bigCats = Object.keys(cats);
+  const subCats = cats[bigCat] || [];
+  const reset = useCallback((txn) => {
+    if (txn) { setType(txn.type);setBigCat(txn.bigCat);setSubCat(txn.subCat);setAmount(txn.amount.toString());setDate(txn.date);setMemo(txn.memo||""); }
+    else { const fb=Object.keys(EXPENSE_CATS)[0];setType("exp");setBigCat(fb);setSubCat(EXPENSE_CATS[fb][0]);setAmount("");setMemo("");const td=todayStr();setDate(td.startsWith(defaultMonth)?td:`${defaultMonth}-01`); }
+  }, [defaultMonth]);
+  useEffect(() => { if (isOpen) reset(editTxn); }, [isOpen, editTxn]);
+  const changeType = t => { setType(t);const nc=t==="inc"?INCOME_CATS:EXPENSE_CATS;const fb=Object.keys(nc)[0];setBigCat(fb);setSubCat(nc[fb][0]); };
+  const changeBig = b => { setBigCat(b);setSubCat(cats[b][0]); };
+  const handleSave = () => { if (!subCat||!amount||!date) return; onSave({id:editTxn?.id||uid(),type,bigCat,subCat,amount:toN(amount),date,memo}); onClose(); };
+  if (!isOpen) return null;
+  return (
+    <div className="backdrop" onClick={e=>e.target===e.currentTarget&&onClose()}>
+      <div className="sheet">
+        <div className="sheet-handle"/>
+        <div className="sheet-title">{editTxn?"記録を編集":"支出・収入を記録"}</div>
+        <div className="sheet-body">
+          <div className="type-grid">
+            <button className={`type-btn exp ${type==="exp"?"sel":""}`} onClick={()=>changeType("exp")}>💸 支出</button>
+            <button className={`type-btn inc ${type==="inc"?"sel":""}`} onClick={()=>changeType("inc")}>💰 収入</button>
+          </div>
+          <div className="fgrp"><label className="flbl">金額（円）</label><input className="famount finput" type="number" inputMode="decimal" min="0" placeholder="0" value={amount} onChange={e=>setAmount(e.target.value)}/></div>
+          <div className="fgrp"><label className="flbl">カテゴリ</label><div className="select-wrap"><select className="fselect" value={bigCat} onChange={e=>changeBig(e.target.value)}>{bigCats.map(b=><option key={b} value={b}>{CAT_ICON[b]} {b}</option>)}</select></div></div>
+          <div className="fgrp"><label className="flbl">項目</label><div className="select-wrap"><select className="fselect" value={subCat} onChange={e=>setSubCat(e.target.value)}>{subCats.map(s=><option key={s} value={s}>{s}</option>)}</select></div></div>
+          <div className="fgrp"><label className="flbl">日付</label><input className="finput" type="date" value={date} onChange={e=>setDate(e.target.value)}/></div>
+          <div className="fgrp"><label className="flbl">メモ（任意）</label><input className="finput" type="text" placeholder="例：スーパーで食材" maxLength={40} value={memo} onChange={e=>setMemo(e.target.value)}/></div>
+          <button className="btn-save" onClick={handleSave}>保存する</button>
+          {editTxn&&<button className="btn-danger" onClick={()=>{onDelete(editTxn.id);onClose();}}>この記録を削除</button>}
+          <button className="btn-cancel" onClick={onClose}>キャンセル</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function HomeTab({ txns, fixedCosts, monthKey, rate }) {
+  const { inc, exp, net } = monthStats(txns, fixedCosts, monthKey, rate);
+  const kis = kisohiTotal(txns, fixedCosts, monthKey, rate);
+  const recent = txns.filter(t=>t.date.startsWith(monthKey)).sort((a,b)=>b.date.localeCompare(a.date)).slice(0,5);
+  const fixedActive = Object.entries(fixedCosts).filter(([,f])=>f.enabled);
+  return (
+    <div>
+      <div className="sum-grid">
+        <div className="sum-tile"><div className="sum-lbl">収入</div><div className="sum-val c-green">{yen(inc)}</div></div>
+        <div className="sum-tile"><div className="sum-lbl">支出</div><div className="sum-val c-red">{yen(exp)}</div></div>
+        <div className="sum-tile"><div className="sum-lbl">収支</div><div className={`sum-val ${net>=0?"c-blue":"c-red"}`}>{signYen(net)}</div></div>
+      </div>
+      <div className="kisohi-banner">
+        <div className="kisohi-top"><div className="kisohi-ttl">⚡ 基礎生活費（必須支出）</div><div className="kisohi-amt">{yen(kis)}</div></div>
+        <div className="kisohi-chips">{KISOHI.map(k=>{const t=txns.filter(t=>t.date.startsWith(monthKey)&&t.subCat===k).reduce((s,t)=>s+t.amount,0)+(fixedCosts[k]?.enabled?getJPY(fixedCosts[k],rate):0);return t>0?<div key={k} className="kisohi-chip">{k} <b>{yen(t)}</b></div>:null;})}</div>
+      </div>
+      {fixedActive.length>0&&<div className="card"><div className="card-title">固定費（毎月自動）</div>{fixedActive.map(([s,f])=>{const jpy=getJPY(f,rate);return(<div key={s} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 0",borderBottom:"1px solid #f5f5f5"}}><div style={{display:"flex",alignItems:"center",gap:6}}><span style={{fontSize:".9rem"}}>{CAT_ICON[f.bigCat]}</span><span style={{fontSize:".88rem",color:"#444"}}>{s}</span><span className="fixed-pill">固定</span>{f.currency==="USD"&&<span className="usd-pill">＄</span>}</div><div style={{textAlign:"right"}}><div style={{fontSize:".9rem",fontWeight:700,color:"#d32f2f"}}>{yen(jpy)}</div>{f.currency==="USD"&&<div style={{fontSize:".68rem",color:"#1565c0"}}>{usd(f.usdAmount)} × {rate}円</div>}</div></div>);})}</div>}
+      <div className="card">
+        <div className="card-title">最近の記録</div>
+        {recent.length===0?<div className="empty"><div className="empty-icon">📝</div><div className="empty-txt">まだ記録がありません<br/>＋ボタンから追加してみましょう</div></div>
+        :recent.map(t=>(<div key={t.id} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 0",borderBottom:"1px solid #f5f5f5"}}><div className="txn-icon" style={{background:CAT_BG[t.bigCat]||"#f5f5f5"}}>{CAT_ICON[t.bigCat]||"📌"}</div><div style={{flex:1,minWidth:0}}><div style={{fontSize:".88rem",fontWeight:600}}>{t.subCat}</div><div style={{fontSize:".72rem",color:"#8e8e93"}}>{fmtDate(t.date)}{t.memo?` · ${t.memo}`:""}</div></div><div style={{fontSize:".9rem",fontWeight:700,color:t.type==="inc"?"#2e7d32":"#d32f2f"}}>{t.type==="inc"?"+":"-"}{yen(t.amount)}</div></div>))}
+        {recent.length>0&&<div style={{textAlign:"center",marginTop:10,fontSize:".78rem",color:"#8e8e93"}}>「記録」タブで全件表示</div>}
+      </div>
+    </div>
+  );
+}
+
+function RecordTab({ txns, fixedCosts, monthKey, onEdit, rate }) {
+  const monthTxns = txns.filter(t=>t.date.startsWith(monthKey)).sort((a,b)=>b.date.localeCompare(a.date));
+  const fixedActive = Object.entries(fixedCosts).filter(([,f])=>f.enabled);
+  const groups = {};
+  monthTxns.forEach(t=>{ (groups[t.date]=groups[t.date]||[]).push(t); });
+  const sortedDates = Object.keys(groups).sort((a,b)=>b.localeCompare(a));
+  const { inc, exp, expFix } = monthStats(txns, fixedCosts, monthKey, rate);
+  return (
+    <div>
+      <div className="sum-grid">
+        <div className="sum-tile"><div className="sum-lbl">収入</div><div className="sum-val c-green">{yen(inc)}</div></div>
+        <div className="sum-tile"><div className="sum-lbl">変動支出</div><div className="sum-val c-red">{yen(exp-expFix)}</div></div>
+        <div className="sum-tile"><div className="sum-lbl">固定費</div><div className="sum-val c-orange">{yen(expFix)}</div></div>
+      </div>
+      {fixedActive.length>0&&<div style={{marginBottom:14}}><div className="fixed-section-hdr">🔒 固定費（毎月自動）</div>{fixedActive.map(([s,f])=>{const jpy=getJPY(f,rate);return(<div key={s} className="txn-row" style={{cursor:"default"}}><div className="txn-icon" style={{background:CAT_BG[f.bigCat]||"#f5f5f5"}}>{CAT_ICON[f.bigCat]}</div><div className="txn-info"><div className="txn-sub">{s} <span className="fixed-pill">固定</span>{f.currency==="USD"&&<span className="usd-pill" style={{marginLeft:4}}>＄</span>}</div><div className="txn-meta">{f.bigCat}{f.currency==="USD"?` · ${usd(f.usdAmount)} × ${rate}円`:""}</div></div><div className="txn-right"><div className="txn-amt c-orange">{yen(jpy)}</div></div></div>);})}</div>}
+      {sortedDates.length===0&&fixedActive.length===0&&<div className="empty"><div className="empty-icon">📋</div><div className="empty-txt">この月の記録はありません<br/>右下の＋ボタンから記録しましょう</div></div>}
+      {sortedDates.map(d=>{
+        const items=groups[d];
+        const dayTotal=items.reduce((s,t)=>s+(t.type==="exp"?-1:1)*t.amount,0);
+        return (<div key={d} className="date-grp"><div className="date-hdr">{fmtDate(d)}<span className={`date-sum ${dayTotal>=0?"c-blue":"c-red"}`}>{signYen(dayTotal)}</span></div>{items.map(t=>(<div key={t.id} className="txn-row" onClick={()=>onEdit(t)}><div className="txn-icon" style={{background:CAT_BG[t.bigCat]||"#f5f5f5"}}>{CAT_ICON[t.bigCat]||"📌"}</div><div className="txn-info"><div className="txn-sub">{t.subCat}</div><div className="txn-meta">{t.bigCat}{t.memo?` · ${t.memo}`:""}</div></div><div className="txn-right"><div className={`txn-amt ${t.type==="inc"?"c-green":"c-red"}`}>{t.type==="inc"?"+":"-"}{yen(t.amount)}</div><div style={{fontSize:".7rem",color:"#c7c7cc"}}>タップで編集</div></div></div>))}</div>);
+      })}
+    </div>
+  );
+}
+
+function FixedCostsTab({ fixedCosts, setFixedCosts, rate, onRateChange }) {
+  const [rateInput, setRateInput] = useState(rate.toString());
+  const total = Object.values(fixedCosts).filter(f=>f.enabled).reduce((s,f)=>s+getJPY(f,rate),0);
+  const usdCount = Object.values(fixedCosts).filter(f=>f.enabled&&f.currency==="USD").length;
+
+  const update = (sub, patch) => {
+    setFixedCosts(prev=>{
+      const next={...prev,[sub]:{...prev[sub],...patch}};
+      saveFixed(next);
+      return next;
+    });
+  };
+
+  const toggleCurrency = (sub) => {
+    const fc = fixedCosts[sub];
+    if (fc.currency === "JPY") {
+      // JPY → USD: convert current JPY amount to USD estimate
+      const usdAmt = rate > 0 ? Math.round((fc.amount / rate) * 100) / 100 : 0;
+      update(sub, { currency:"USD", usdAmount: usdAmt });
+    } else {
+      // USD → JPY: keep current JPY equivalent
+      const jpy = getJPY(fc, rate);
+      update(sub, { currency:"JPY", amount: jpy, usdAmount:0 });
+    }
+  };
+
+  const handleAmountChange = (sub, val) => {
+    const fc = fixedCosts[sub];
+    if (fc.currency === "USD") {
+      update(sub, { usdAmount: toN(val) });
+    } else {
+      update(sub, { amount: toN(val) });
+    }
+  };
+
+  const handleRateBlur = () => {
+    const r = parseFloat(rateInput);
+    if (r > 0) onRateChange(r);
+  };
+
+  return (
+    <div>
+      {/* 為替レート設定 */}
+      <div className="rate-card">
+        <div className="rate-row">
+          <span className="rate-lbl">💱 為替レート</span>
+          <span style={{fontSize:".88rem",color:"#1565c0"}}>1$ =</span>
+          <input
+            className="rate-input"
+            type="number"
+            inputMode="decimal"
+            min="1"
+            value={rateInput}
+            onChange={e=>setRateInput(e.target.value)}
+            onBlur={handleRateBlur}
+            onKeyDown={e=>e.key==="Enter"&&handleRateBlur()}
+          />
+          <span style={{fontSize:".88rem",color:"#1565c0"}}>円</span>
+        </div>
+        <div className="rate-note">ドル払いの固定費は毎月このレートで円換算されます。月ごとに更新してください。</div>
+      </div>
+
+      <div className="info-note">💡 毎月の固定費をここで登録しておくと、毎月自動的に集計に反映されます。円払いは¥、ドル払いは＄ボタンで切り替えてください。</div>
+      {total>0&&<div className="card" style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+        <div>
+          <div style={{fontWeight:700,fontSize:".9rem"}}>固定費合計（月）</div>
+          {usdCount>0&&<div style={{fontSize:".72rem",color:"#1565c0",marginTop:2}}>うち＄払い {usdCount}件（1$={rate}円換算）</div>}
+        </div>
+        <span style={{fontWeight:800,fontSize:"1.1rem",color:"#e65100"}}>{yen(total)}</span>
+      </div>}
+
+      {Object.entries(EXPENSE_CATS).map(([bigCat,subs])=>(
+        <div key={bigCat} className="fc-group">
+          <div className="fc-group-hdr">{CAT_ICON[bigCat]} {bigCat}</div>
+          {subs.map(s=>{
+            const fc = fixedCosts[s] || {amount:0,enabled:false,currency:"JPY",usdAmount:0};
+            const isUSD = fc.currency === "USD";
+            const dispVal = isUSD ? (fc.usdAmount || "") : (fc.amount || "");
+            const jpy = getJPY(fc, rate);
+            return (
+              <div key={s} style={{marginBottom:6}}>
+                <div className="fc-row">
+                  <button className={`tog ${fc.enabled?"on":"off"}`} onClick={()=>update(s,{enabled:!fc.enabled})}/>
+                  <div className="fc-name">{s}</div>
+                  {/* 通貨切替ボタン */}
+                  <button
+                    className={`curr-btn ${isUSD?"usd":"jpy"}`}
+                    disabled={!fc.enabled}
+                    onClick={()=>fc.enabled&&toggleCurrency(s)}
+                    title={isUSD?"クリックで円に切替":"クリックでドルに切替"}
+                  >
+                    {isUSD?"＄":"¥"}
+                  </button>
+                  <input
+                    className={`fc-input ${isUSD?"usd":""}`}
+                    type="number"
+                    inputMode="decimal"
+                    min="0"
+                    placeholder={isUSD?"0.00":"金額"}
+                    value={dispVal}
+                    disabled={!fc.enabled}
+                    onChange={e=>handleAmountChange(s,e.target.value)}
+                  />
+                </div>
+                {/* USDの場合は円換算を表示 */}
+                {isUSD && fc.enabled && fc.usdAmount > 0 && (
+                  <div className="fc-usd-note">{usd(fc.usdAmount)} × {rate}円 ＝ {yen(jpy)}</div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ChartTab({ txns, fixedCosts, monthKey, rate }) {
+  const barRef=useRef(null),barInst=useRef(null);
+  const pieRef=useRef(null),pieInst=useRef(null);
+  const summaries = useMemo(()=>MONTHS.map(m=>monthStats(txns,fixedCosts,m.key,rate)),[txns,fixedCosts,rate]);
+  const expBig = useMemo(()=>expByBigCat(txns,fixedCosts,monthKey,rate),[txns,fixedCosts,monthKey,rate]);
+  const curLabel = MONTHS.find(m=>m.key===monthKey)?.label||"";
+  useEffect(()=>{
+    if(!barRef.current)return;
+    if(barInst.current){barInst.current.destroy();barInst.current=null;}
+    barInst.current=new Chart(barRef.current,{data:{labels:MONTHS.map(m=>m.label),datasets:[{type:"bar",label:"収入",data:summaries.map(s=>s.inc),backgroundColor:"rgba(46,125,50,.75)",borderColor:"#2e7d32",borderWidth:1},{type:"bar",label:"支出",data:summaries.map(s=>s.exp),backgroundColor:"rgba(211,47,47,.75)",borderColor:"#d32f2f",borderWidth:1},{type:"line",label:"収支",data:summaries.map(s=>s.net),borderColor:"#1565c0",backgroundColor:"rgba(21,101,192,.08)",fill:true,tension:.4,pointRadius:4,pointBackgroundColor:"#1565c0"}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:"top"},title:{display:true,text:"月別 収入・支出・収支",font:{size:13}}},scales:{y:{beginAtZero:true,ticks:{callback:v=>"¥"+(v/10000).toFixed(0)+"万"}}}}});
+    return()=>{if(barInst.current){barInst.current.destroy();barInst.current=null;}};
+  },[summaries]);
+  useEffect(()=>{
+    if(!pieRef.current)return;
+    if(pieInst.current){pieInst.current.destroy();pieInst.current=null;}
+    const labels=Object.keys(EXPENSE_CATS);
+    const values=labels.map(b=>expBig[b]||0);
+    pieInst.current=new Chart(pieRef.current,{type:"pie",data:{labels,datasets:[{data:values,backgroundColor:EXP_COLORS,borderWidth:2,borderColor:"#fff"}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:"right",labels:{font:{size:10},padding:8}},title:{display:true,text:`${curLabel} 支出内訳`,font:{size:13}},tooltip:{callbacks:{label:ctx=>` ${ctx.label}: ¥${ctx.parsed.toLocaleString("ja-JP")}` }}}}});
+    return()=>{if(pieInst.current){pieInst.current.destroy();pieInst.current=null;}};
+  },[expBig,curLabel]);
+  return (
+    <div>
+      <div className="card"><div className="chart-wrap"><canvas ref={barRef}/></div></div>
+      <div className="card"><div className="chart-wrap-sm"><canvas ref={pieRef}/></div></div>
+      <div className="card">
+        <div className="card-title">月別サマリー</div>
+        <table className="mtable">
+          <thead><tr><th>月</th><th>収入</th><th>支出</th><th>収支</th></tr></thead>
+          <tbody>{MONTHS.map((m,i)=>{const s=summaries[i];const h=s.inc>0||s.exp>0;return(<tr key={m.key} className={m.key===monthKey?"cur":""}><td>{m.label}</td><td className="c-green">{h?yen(s.inc):"—"}</td><td className="c-red">{h?yen(s.exp):"—"}</td><td className={s.net>=0?"c-blue":"c-red"}>{h?signYen(s.net):"—"}</td></tr>);})}</tbody>
+          <tfoot><tr><td>年計</td><td className="c-green">{yen(summaries.reduce((a,s)=>a+s.inc,0))}</td><td className="c-red">{yen(summaries.reduce((a,s)=>a+s.exp,0))}</td><td className={summaries.reduce((a,s)=>a+s.net,0)>=0?"c-blue":"c-red"}>{signYen(summaries.reduce((a,s)=>a+s.net,0))}</td></tr></tfoot>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function App() {
+  const [txns,setTxns]=useState(loadTxn);
+  const [fixedCosts,setFixedCosts]=useState(loadFixed);
+  const [usdRate,setUsdRate]=useState(loadRate);
+  const [monthKey,setMonthKey]=useState(()=>{const today=todayStr();return MONTHS.find(m=>today.startsWith(m.key))?.key||MONTHS[0].key;});
+  const [activeTab,setActiveTab]=useState("home");
+  const [showModal,setShowModal]=useState(false);
+  const [editTxn,setEditTxn]=useState(null);
+
+  const handleRateChange = useCallback((newRate) => {
+    const r = parseFloat(newRate);
+    if (!r || r <= 0) return;
+    setUsdRate(r);
+    saveRate(r);
+    // USDの固定費は動的に換算されるので再保存不要
+  }, []);
+
+  const handleSave=useCallback(txn=>{setTxns(prev=>{const next=editTxn?prev.map(t=>t.id===txn.id?txn:t):[...prev,txn];saveTxn(next);return next;});setEditTxn(null);},[editTxn]);
+  const handleDelete=useCallback(id=>{setTxns(prev=>{const next=prev.filter(t=>t.id!==id);saveTxn(next);return next;});setEditTxn(null);},[]);
+  const openAdd=()=>{setEditTxn(null);setShowModal(true);};
+  const openEdit=t=>{setEditTxn(t);setShowModal(true);};
+  const curMonth=MONTHS.find(m=>m.key===monthKey);
+  const showFab=activeTab==="home"||activeTab==="record";
+  return (
+    <>
+      <div className="topbar">
+        <div className="topbar-left"><div className="topbar-title">🏠 家計管理アプリ</div><div className="topbar-sub">{curMonth?.y}年{curMonth?.label} の記録</div></div>
+        <button className="topbar-btn" onClick={()=>doExport(txns,fixedCosts,usdRate)}>📥 書き出し</button>
+      </div>
+      <div className="month-bar">{MONTHS.map(m=>(<button key={m.key} className={`mchip ${monthKey===m.key?"active":""}`} onClick={()=>setMonthKey(m.key)}>{m.label}</button>))}</div>
+      <div className="content">
+        {activeTab==="home"  &&<HomeTab txns={txns} fixedCosts={fixedCosts} monthKey={monthKey} rate={usdRate}/>}
+        {activeTab==="record"&&<RecordTab txns={txns} fixedCosts={fixedCosts} monthKey={monthKey} onEdit={openEdit} rate={usdRate}/>}
+        {activeTab==="fixed" &&<FixedCostsTab fixedCosts={fixedCosts} setFixedCosts={setFixedCosts} rate={usdRate} onRateChange={handleRateChange}/>}
+        {activeTab==="chart" &&<ChartTab txns={txns} fixedCosts={fixedCosts} monthKey={monthKey} rate={usdRate}/>}
+      </div>
+      {showFab&&<button className="fab" onClick={openAdd}>＋</button>}
+      <div className="bottom-nav">
+        {[["home","🏠","ホーム"],["record","📝","記録"],["fixed","🔒","固定費"],["chart","📊","グラフ"]].map(([id,icon,lbl])=>(
+          <button key={id} className={`nav-btn ${activeTab===id?"active":""}`} onClick={()=>setActiveTab(id)}>
+            <span className="nav-icon">{icon}</span><span className="nav-lbl">{lbl}</span>
+          </button>
+        ))}
+      </div>
+      <AddModal isOpen={showModal} onClose={()=>{setShowModal(false);setEditTxn(null);}} onSave={handleSave} onDelete={handleDelete} editTxn={editTxn} defaultMonth={monthKey}/>
+    </>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>
